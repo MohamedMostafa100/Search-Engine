@@ -1,17 +1,13 @@
-import com.mongodb.BasicDBObject;
 import com.mongodb.client.*;
 import com.mongodb.client.model.Filters;
 import org.jsoup.Jsoup;
 import org.bson.Document;
-import org.springframework.boot.SpringApplication;
 import org.tartarus.snowball.ext.PorterStemmer;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import java.io.IOException;
-import java.lang.reflect.Array;
-import java.util.Arrays;
 
 
 public class Indexer {
@@ -31,7 +27,7 @@ public class Indexer {
         try {
             while(cursor.hasNext()) {
                 Document links = cursor.next();
-                ParseHTML(links.get("url").toString(), links.getInteger("popularity"), i+1,WordCollection);
+                ParseHTML(links.get("url").toString(), links.getInteger("popularity"), i, WordCollection);
                 i++;
             }
         } catch (IOException e) {
@@ -39,13 +35,6 @@ public class Indexer {
         } finally {
             cursor.close();
         }
-
-//        try {
-//            database.createCollection("words");
-//            System.out.println("Created Words Collection");
-//        } catch (Exception e) {
-//            System.out.println("Words Collection already exists");
-//        }
 
     }
 
@@ -101,23 +90,26 @@ public class Indexer {
             stemmer.stem();
             String stemmedWord = stemmer.getCurrent();
 
-            if (WordCollection.find(Filters.eq("word", stemmedWord)).first() == null) {
+            Document foundWord = WordCollection.find(Filters.eq("word", stemmedWord)).first();
+
+            if (foundWord == null) {
                 Document newWord = new Document("word", stemmedWord);
                 Document data = new Document();
                 data.append("url", url);
                 data.append("TF", 2);
                 data.append("Snippet", String.join(" ",getSnippet(i, titleWords)));
                 data.append("Popularity", Popularity);
-                Document URLS = new Document();
-                URLS.append(title, Arrays.asList(data));
-                newWord.append("URLs_Data", Arrays.asList(URLS));
+                List<Document> URLS = new ArrayList<>();
+                URLS.add(data);
+                newWord.append("URLs_Data", URLS);
                 newWord.append("No of documents", 1);
                 WordCollection.insertOne(newWord);
             } else {
-                int index = WordCollection.find(new Document("word", stemmedWord)).first().getInteger("No of documents");
+                int index = foundWord.getInteger("No of documents");
+                String cmpUrl = foundWord.getList("URLs_Data", Document.class).get(index - 1).get("url").toString();
                 //found in current document
-                if (index == no_indexed) {
-                    WordCollection.updateOne(new Document("word", stemmedWord), new Document("$inc", new Document("URLs_Data." + Integer.toString(index-1) + "." + title + ".0.TF", 2)));
+                if (cmpUrl.equals(url)) {
+                    WordCollection.updateOne(new Document("word", stemmedWord), new Document("$inc", new Document("URLs_Data." + (index - 1) + ".TF", 2)));
                 }
                 //found but in a different document
                 else {
@@ -126,9 +118,7 @@ public class Indexer {
                     data.append("TF", 2);
                     data.append("Snippet", String.join(" ",getSnippet(i, titleWords)));
                     data.append("Popularity", Popularity);
-                    Document URLS = new Document();
-                    URLS.append(title, Arrays.asList(data));
-                    WordCollection.updateOne(new Document("word", stemmedWord), new Document("$push", new Document("URLs_Data", URLS)));
+                    WordCollection.updateOne(new Document("word", stemmedWord), new Document("$push", new Document("URLs_Data", data)));
                     WordCollection.updateOne(new Document("word", stemmedWord), new Document("$inc", new Document("No of documents", 1)));
                 }
 
@@ -159,23 +149,26 @@ public class Indexer {
             stemmer.stem();
             String stemmedWord = stemmer.getCurrent();
 
-            if (WordCollection.find(Filters.eq("word", stemmedWord)).first() == null) {
+            Document foundWord = WordCollection.find(Filters.eq("word", stemmedWord)).first();
+
+            if (foundWord == null) {
                 Document newWord = new Document("word", stemmedWord);
                 Document data = new Document();
                 data.append("url", url);
                 data.append("TF", 1);
                 data.append("Snippet",  String.join(" ",getSnippet(i, bodyWords)));
                 data.append("Popularity", Popularity);
-                Document URLS = new Document();
-                URLS.append(title, Arrays.asList(data));
-                newWord.append("URLs_Data", Arrays.asList(URLS));
+                List<Document> URLS = new ArrayList<>();
+                URLS.add(data);
+                newWord.append("URLs_Data", URLS);
                 newWord.append("No of documents", 1);
                 WordCollection.insertOne(newWord);
             } else {
-                int index = WordCollection.find(new Document("word", stemmedWord)).first().getInteger("No of documents");
+                int index = foundWord.getInteger("No of documents");
+                String cmpUrl = foundWord.getList("URLs_Data", Document.class).get(index - 1).get("url").toString();
                 //found in current document
-                if (index == no_indexed) {
-                    WordCollection.updateOne(new Document("word", stemmedWord), new Document("$inc", new Document("URLs_Data." + Integer.toString(index-1) + "." + title + ".0.TF", 1)));
+                if (cmpUrl.equals(url)) {
+                    WordCollection.updateOne(new Document("word", stemmedWord), new Document("$inc", new Document("URLs_Data." + (index - 1) + ".TF", 1)));
                 }
                 //found but in a different document
                 else {
@@ -184,9 +177,7 @@ public class Indexer {
                     data.append("TF", 1);
                     data.append("Snippet", String.join(" ",getSnippet(i, bodyWords)));
                     data.append("Popularity", Popularity);
-                    Document URLS = new Document();
-                    URLS.append(title, Arrays.asList(data));
-                    WordCollection.updateOne(new Document("word", stemmedWord), new Document("$push", new Document("URLs_Data", URLS)));
+                    WordCollection.updateOne(new Document("word", stemmedWord), new Document("$push", new Document("URLs_Data", data)));
                     WordCollection.updateOne(new Document("word", stemmedWord), new Document("$inc", new Document("No of documents", 1)));
                 }
 

@@ -1,7 +1,4 @@
-import com.mongodb.MongoClient;
-import com.mongodb.client.FindIterable;
-import com.mongodb.client.MongoCollection;
-import com.mongodb.client.MongoDatabase;
+import com.mongodb.client.*;
 import org.bson.Document;
 import org.bson.conversions.Bson;
 
@@ -75,7 +72,7 @@ public class Query_Processor {
         return finalWordsList;
     }
     public static ArrayList<Document> Search(List<String> s) {
-        MongoClient client = new MongoClient("mongodb://localhost:27017");
+        MongoClient client = MongoClients.create("mongodb://localhost:27017");
         MongoDatabase database = client.getDatabase("MyGoogle");
         MongoCollection collection = database.getCollection("words");
         ArrayList<Document> allDocs = new ArrayList<Document>();
@@ -95,13 +92,5 @@ public class Query_Processor {
         System.out.println(finalWordsList);
         ArrayList<Document> alldocs = Search(finalWordsList);
         System.out.println(alldocs);
-//        String input = "I am `playing football` now";
-//        List<String> result = splitStringExceptBackticks(input);
-//
-//        for (String word : result) {
-//            System.out.println(word);
-//        }
-//        ArrayList<Document> docs = new ArrayList<Document>();
-//        docs.add();
     }
 }
